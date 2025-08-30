@@ -46,9 +46,11 @@ Final Takeaway: Buildings are generally energy-efficient, leaning more towards c
 
 ## How to run
 1. Clone the repository
-    git clone https://github.com/your-username/energy-efficiency.git
-    cd energy-efficiency
+    Run the following:
+    - git clone https://github.com/your-username/energy-efficiency.git
+    - cd energy-efficiency
 2. Install required packages, you need to get this from the root folder of the repo as this is a shared requirements.txt file.
-    pip install -r requirements.txt
+    Run the following:
+    - pip install -r requirements.txt
 3. Open the Jupyter notebooks and run the cells.
 

@@ -45,12 +45,10 @@ Interpretation:
 Final Takeaway: Buildings are generally energy-efficient, leaning more towards cooling load efficiency than heating.
 
 ## How to run
-1. Clone the repository
-    Run the following:
+1. Clone the repository by running the following:
     - git clone https://github.com/your-username/energy-efficiency.git
     - cd energy-efficiency
-2. Install required packages, you need to get this from the root folder of the repo as this is a shared requirements.txt file.
-    Run the following:
+2. Install required packages, you need to get this from the root folder of the repo as this is a shared requirements.txt file. Once you have the file, move it to your energy-efficieny folder and run the following:
     - pip install -r requirements.txt
 3. Open the Jupyter notebooks and run the cells.
 

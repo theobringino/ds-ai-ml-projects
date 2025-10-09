@@ -6,108 +6,113 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
 
-# Declare constants
-data_path = 'cyber_data.csv'
-artifacts_dir = 'models'
-target_var = 'Log_Local_Infection'
+# CONSTANTS
+DATA_PATH = 'cyber_data.csv'
+ARTIFACTS_DIR = 'models'
+TARGET_VAR_ORIG = 'Local Infection'
+TARGET_VAR_LOG = 'Log_Local_Infection'
 
-# List of original features that will be log-transformed and then DROPPED
-ORIGINAL_FEATURES_TO_DROP = [
-    'Spam', 'Ransomware', 'Exploit', 'Malicious_Mail', 
-    'Network_Attack', 'Web_Threat'
+# Columns to be log-transformed (these originals will be dropped later)
+LOG_TRANSFORM_COLS = [
+    'Spam', 'Ransomware', 'Exploit', 'Malicious Mail', 
+    'Network Attack', 'Web Threat'
 ]
 
+# Columns to drop entirely (e.g., meta data, rank columns)
+COLS_TO_DROP = [
+    'AttackDate', 'index', 'On Demand Scan',
+    'Rank Spam', 'Rank Ransomware', 'Rank Local Infection', 
+    'Rank Exploit', 'Rank Malicious Mail', 'Rank Network Attack', 
+    'Rank On Demand Scan', 'Rank Web Threat'
+]
 
-# This function preprocesses the data by applying the transforms and required feature engineering
-def preprocess_data(df, fit_scaler=False, scaler=None):
+# The optimal alpha found in the advanced notebook
+RIDGE_ALPHA = 0.21544346900318823
+
+# --- PREPROCESSING FUNCTION (Only handles feature engineering) ---
+def preprocess_features(df):
+    """
+    Applies all feature engineering and cleaning steps except for scaling.
+    This function is reusable in the API.
+    """
+    # 1. Standardize column names (replace spaces with underscores)
+    df.columns = df.columns.str.replace(' ', '_')
     
-    # 1. Apply Log transforms to features (creates Log_X columns)
-    for col in ORIGINAL_FEATURES_TO_DROP:
-        df[f'Log_{col}'] = np.log1p(df[col])
+    # 2. Drop unnecessary metadata/rank columns
+    cols_to_drop = [col for col in COLS_TO_DROP if col in df.columns]
+    df = df.drop(columns=cols_to_drop, errors='ignore')
+    
+    # 3. Drop rows with any missing values
+    df.dropna(inplace=True)
 
-    # 2. Encode country (drops the original 'Country' column)
+    # 4. Log Transform features (np.log1p)
+    log_features_to_drop = []
+    for col in LOG_TRANSFORM_COLS:
+        col = col.replace(' ', '_') # Use the standardized name
+        log_col_name = f'Log_{col}'
+        df[log_col_name] = np.log1p(df[col])
+        log_features_to_drop.append(col)
+        
+    # 5. One-Hot Encode the Country column
     df = pd.get_dummies(df, columns=['Country'], drop_first=True, dtype=int)
     
-    # 3. Drop ORIGINAL untransformed features that were replaced by Log_X
-    cols_to_drop = ORIGINAL_FEATURES_TO_DROP + ['Local_Infection']
-    df = df.drop(columns=[col for col in cols_to_drop if col in df.columns], errors='ignore')
-
-    # 4. Define features to scale (all remaining columns except the target)
-    features_to_scale = [col for col in df.columns if col not in [target_var]]
-
-    # 4. Drop the target column to isolate features for scaling if it exists
-    cols_to_drop = [target_var, 'Local_Infection']
-    features_df = df.drop(columns=[col for col in cols_to_drop if col in df.columns], errors='ignore')
-
-    features_to_scale = features_df.columns.tolist()
-
-    if fit_scaler:
-        scaler = StandardScaler()
-        # Scale the defined features
-        df[features_to_scale] = scaler.fit_transform(df[features_to_scale])
-        return df, scaler
-    else:
-        # Use the loaded scaler for transformation
-        df[features_to_scale] = scaler.transform(df[features_to_scale])
-        return df, None
+    # 6. Drop original untransformed features
+    df = df.drop(columns=log_features_to_drop, errors='ignore')
     
-# Model training logic
+    return df
+
+# Training Script
 def train_model():
-     #List of columns to EXCLUDE from the feature set
-    COLS_TO_EXCLUDE = [
-    target_var, 'Local_Infection', 'AttackDate', 
-    'On_Demand_Scan', # Exclude this raw feature
-    'Rank_Spam', 'Rank_Ransomware', 'Rank_Local_Infection', 
-    'Rank_Exploit', 'Rank_Malicious_Mail', 'Rank_Network_Attack', 
-    'Rank_On_Demand_Scan', 'Rank_Web_Threat' # Exclude all rank features
-    ]
-    # 1. Load and prepare data
-    data = pd.read_csv(data_path)
-    data.columns = data.columns.str.replace(' ', '_', regex=True)
-    data.dropna(inplace=True) 
-
-    # 1: Drop the date/time column
-    data = data.drop(columns=['AttackDate'], errors='ignore')
+    # 1. Setup paths
+    os.makedirs(ARTIFACTS_DIR, exist_ok=True)
     
-    data.dropna(inplace=True)
-    data = data.drop(columns=['AttackDate'], errors='ignore')
+    try:
+        data = pd.read_csv(DATA_PATH)
+    except FileNotFoundError:
+        print(f"Error: Data file not found at {DATA_PATH}. Please ensure 'cyber_data.csv' is in the same directory.")
+        return
 
-    # 2. Create log-transformed target variable
-    data[target_var] = np.log1p(data['Local_Infection'])
-
-    # 3. Train test split
-    X = data.drop(columns=[col for col in COLS_TO_EXCLUDE if col in data.columns], errors='ignore')
-    y = data[target_var]
-
+    # 2. Apply preprocessing steps (cleaning and feature engineering)
+    # Note: Target transformation is done here, as it is a feature engineering step
+    processed_df = preprocess_features(data.copy())
+    
+    # 3. Log Transform the Target variable
+    processed_df[TARGET_VAR_LOG] = np.log1p(processed_df[TARGET_VAR_ORIG.replace(' ', '_')])
+    
+    # 4. Define X and y (features and target)
+    X = processed_df.drop(columns=[TARGET_VAR_ORIG.replace(' ', '_'), TARGET_VAR_LOG])
+    y = processed_df[TARGET_VAR_LOG]
+    
+    # 5. Train-Test Split (80/20)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    # 4. Preprocess and fit scaler on the training data
-    # Pass the entire data split to preprocess_data
-    train_df = X_train 
-    train_df = pd.concat([X_train, y_train], axis=1)
+    # 6. Capture the final ordered feature list for API use
+    feature_cols = X_train.columns.tolist()
     
-    train_df_scaled, scaler = preprocess_data(train_df, fit_scaler=True)
+    # 7. Scaling (Fit on Train, Transform Train and Test)
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
     
-    # 5. Isolate scaled features and target
-    X_train_scaled = train_df_scaled.drop(columns=[target_var])
-    y_train_scaled = train_df_scaled[target_var]
+    # Convert back to DataFrame for consistency
+    X_train_scaled = pd.DataFrame(X_train_scaled, index=X_train.index, columns=feature_cols)
+    X_test_scaled = pd.DataFrame(X_test_scaled, index=X_test.index, columns=feature_cols)
+    
+    # 8. Train the Ridge Model
+    model = Ridge(alpha=RIDGE_ALPHA) 
+    model.fit(X_train_scaled, y_train)
 
-    # 6. Capture the final feature list for use in api.py
-    feature_cols = X_train_scaled.columns.tolist()
-    
-    # 7. Train the model
-    model = Ridge(alpha=0.21544346900318823) 
-    model.fit(X_train_scaled, y_train_scaled)
+    # 9. Evaluate (optional, but confirms success)
+    r2 = model.score(X_test_scaled, y_test)
+    print(f"\n--- Training Complete ---")
+    print(f"Model: Ridge Regression (Alpha={RIDGE_ALPHA})")
+    print(f"Test Set R-squared: {r2:.4f}")
 
-    # 8. Save artifacts to models directory
-    os.makedirs(artifacts_dir, exist_ok=True)
-    
-    joblib.dump(model, f'{artifacts_dir}/model.pkl')
-    joblib.dump(scaler, f'{artifacts_dir}/scaler.pkl')
-    # Save the feature column list, which is CRITICAL for API stability
-    joblib.dump(feature_cols, f'{artifacts_dir}/feature_cols.pkl') 
-    
-    print("Training complete. Model, Scaler, and Feature List artifacts saved to 'models/' directory.")
+    # 10. Save Artifacts
+    joblib.dump(model, f'{ARTIFACTS_DIR}/model.pkl')
+    joblib.dump(scaler, f'{ARTIFACTS_DIR}/scaler.pkl')
+    joblib.dump(feature_cols, f'{ARTIFACTS_DIR}/feature_cols.pkl')
+    print(f"Model artifacts saved to '{ARTIFACTS_DIR}/'")
 
 if __name__ == '__main__':
     train_model()

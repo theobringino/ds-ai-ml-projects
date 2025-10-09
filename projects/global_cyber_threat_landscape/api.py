@@ -20,7 +20,6 @@ FEATURE_COLS = [] # This list is CRITICAL for aligning OHE features
 try:
     MODEL = joblib.load(f'{artifacts_dir}/model.pkl')
     SCALER = joblib.load(f'{artifacts_dir}/scaler.pkl')
-    # Load the feature list created during training (e.g., ['Log_Spam', ..., 'Country_US'])
     FEATURE_COLS = joblib.load(f'{artifacts_dir}/feature_cols.pkl') 
     print("Model, Scaler, and Feature List loaded successfully.")
 except Exception as e:
@@ -42,7 +41,6 @@ def preprocess_input(df, scaler, feature_cols):
     if 'Country' in df.columns:
         df = pd.get_dummies(df, columns=['Country'], drop_first=True, dtype=int)
     
-    # 🚨 CRITICAL FIX: Drop original, untransformed features
     # This step ensures only the Log-transformed and OHE columns proceed.
     cols_to_drop = ORIGINAL_FEATURES
     df = df.drop(columns=cols_to_drop, errors='ignore')
@@ -62,7 +60,7 @@ def preprocess_input(df, scaler, feature_cols):
     
     return input_scaled
 
-# --- 3. API Setup and Endpoint ---
+# 3. API Setup and Endpoint
 app = Flask(__name__)
 
 @app.route('/predict', methods=['POST'])

@@ -29,14 +29,12 @@ def preprocess_data(df, fit_scaler=False, scaler=None):
     df = pd.get_dummies(df, columns=['Country'], drop_first=True, dtype=int)
     
     # 3. Drop ORIGINAL untransformed features that were replaced by Log_X
-    # 3. Drop original, untransformed features and the original un-logged target
     cols_to_drop = ORIGINAL_FEATURES_TO_DROP + ['Local_Infection']
     df = df.drop(columns=[col for col in cols_to_drop if col in df.columns], errors='ignore')
 
     # 4. Define features to scale (all remaining columns except the target)
     features_to_scale = [col for col in df.columns if col not in [target_var]]
 
-    
     # 4. Drop the target column to isolate features for scaling if it exists
     cols_to_drop = [target_var, 'Local_Infection']
     features_df = df.drop(columns=[col for col in cols_to_drop if col in df.columns], errors='ignore')
@@ -67,10 +65,13 @@ def train_model():
     data = pd.read_csv(data_path)
     data.columns = data.columns.str.replace(' ', '_', regex=True)
     data.dropna(inplace=True) 
-    
-    # FIX 1: Drop the date/time column
+
+    # 1: Drop the date/time column
     data = data.drop(columns=['AttackDate'], errors='ignore')
     
+    data.dropna(inplace=True)
+    data = data.drop(columns=['AttackDate'], errors='ignore')
+
     # 2. Create log-transformed target variable
     data[target_var] = np.log1p(data['Local_Infection'])
 

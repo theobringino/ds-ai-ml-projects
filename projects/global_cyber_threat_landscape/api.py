@@ -11,6 +11,8 @@ LOG_TRANSFORM_COLS = [
     'Spam', 'Ransomware', 'Exploit', 'Malicious Mail', 
     'Network Attack', 'Web Threat'
 ]
+# API Key
+API_KEY = "23Theo23APIKey"
 
 # 1. Load Artifacts
 MODEL = None
@@ -71,7 +73,13 @@ app = Flask(__name__)
 def predict():
     if not MODEL or not SCALER or not FEATURE_COLS:
         return jsonify({"error": "Model, Scaler, or Feature List not loaded. Please run train.py first."}), 500
-        
+
+    received_key = request.headers.get('X-API-Key')
+    if received_key != API_KEY:
+        # Implement Fail-Secure: return 401 Unauthorized and stop processing
+        return jsonify({"error": "Unauthorized access. Invalid or missing API Key."}), 401
+
+
     try:
         # Get JSON data, wrap in a list to create a one-row DataFrame
         json_data = request.get_json(force=True)

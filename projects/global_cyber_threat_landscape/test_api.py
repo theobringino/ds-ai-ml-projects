@@ -1,6 +1,8 @@
 import requests
 import json
 
+
+
 # The URL for your Flask endpoint
 API_URL = "http://127.0.0.1:5000/predict" 
 
@@ -18,7 +20,8 @@ test_data = {
 
 # The request headers specify that you are sending JSON data
 headers = {
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
+    "X-API-Key" : "23Theo23APIKey"
 }
 
 try:
